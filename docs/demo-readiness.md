@@ -1,4 +1,4 @@
-# Veldora demo readiness — 2026-09-19
+# Veldora demo readiness — 2026-09-20
 
 **Sonuç: Kod kontrolleri PASS; tam canlı kabul BLOCKED.** Kontrol zamanı 20:56–20:57 UTC. Başlangıç: temiz `main`, `dcbe222a27c6e40e083b87a17e30bc603eddb420`; test edilen kod: `82d1f73db10baf22cb15a14f44c30127e74af059`. Origin: `https://github.com/lmcboyraz/veldora.git`. Push yapılmadı.
 
@@ -40,8 +40,9 @@ Yerel kanıtlar: `outputs/demo-readiness-20260919/` altında altı komutun logla
 | Fee retention/reuse, doğru LP, çift çekim olmaması | PASS (Rust) | `retained_fee_funds_the_next_swap_without_double_credit_or_extra_withdrawal_rights` ve farklı LP/rollback testleri. |
 | Timeout/reload/Check transaction | PASS (otomatik) | fx-submission, fx-quote-cycle, tx-outcome ve LP recovery: aynı hash, belirsizlikte yeniden imza/submission yok. |
 | Yerel UI, desktop/dar ekran, runtime | PASS (tarayıcı) | Mevcut localhost:3017/PID 40389 kullanıldı. 1440/390 px, üç sekme, taşma yok, JS exception/console.error yok. Tek HTTP 400 kasıtlı geçersiz-wallet güvenlik probu. |
-| Sunum URL'si ile sürüm eşleşmesi | BLOCKED | Yerel sürüm doğrulandı; sunulacak URL belirtilmedi, deploy yapılmadı. |
-| Kullanıcı imzalı direct/two-hop, gerçek Fund/LP kabulü ve prova videosu | BLOCKED | Cüzdan imzasına erişim yok. Mock testler gerçek E2E PASS sayılmadı; yalnız ekran görüntüleri kaydedildi. |
+| Sunum URL'si ile sürüm eşleşmesi | BLOCKED | Sites kaydındaki eski Rise FX v1 URL'si bulundu; anonim erişim HTTP 401. Güncel Veldora ile eşleşmesi doğrulanmadı, deploy yapılmadı. |
+| Kullanıcı imzalı direct/two-hop, gerçek Fund/LP kabulü ve prova videosu | BLOCKED | Gerçek Chrome'da Apple Events JavaScript erişimi kapalı; cüzdan/pending durumu okunamadı. Aşağıdaki somut bağlantı adımı bekliyor. |
+| İmzasız kayıt/MP4 denemesi | PASS (yalnız video aracı) | 12 sn, 1280×900, 8 fps H.264 MP4; 1/5/9. saniye kareleri dosyadan çözülerek kontrol edildi. İzole Chromium, cüzdan bağlı değil; gerçek kabul kanıtı değil. |
 
 ## Anchor tutar incelemesinin sınırı
 
@@ -61,3 +62,17 @@ Bu koşuda hiçbir zincir işlemi imzalanmadı/gönderilmedi. **İşlem hash'i: 
 4. Demo hemen öncesi preflight'ı tekrar çalıştır. TRY snapshot **2026-09-20 10:57 UTC**'de bitiyor; en erken ledger TTL yaklaşık **2026-09-26 09:35 UTC**. Demo zamanı gerektirirse ayrı onaylı `try:refresh`/TTL bakımı gerekli. Şu an likidite top-up zorunlu değil; büyük fon tutarı tek rotada gönderilemeyebilir.
 
 `.env.local`, `.dev.vars`, `work/fx-secrets.json` yerelde mevcut, ignored ve untracked. Gerçek secret değerleri rapora/loglara alınmadı; commit edilen dosyalarda private-key/token örüntüsü bulunmadı.
+
+## 20 Eylül 00:07–00:13 İstanbul — canlı prova hazırlığı
+
+Başlangıç HEAD `6f269a9cb9a674311bd96fb3bdd036f12805960d`, çalışma ağacı temiz. `82d1f73` sonrasında ilgili kod değişmemiş: typecheck/lint/test/build/cargo tekrar çalıştırılmadı. Bu bölümün eklenmesi uygulama davranışını değiştirmiyor.
+
+- **Gerçek tarayıcı:** mevcut Google Chrome 153.0.8010.50, normal (incognito olmayan) pencere; yeni açılan `http://localhost:3017/` sekmesi, mevcut PID 40389 sunucusu. Önceki headless test profili kullanılmadı. Chrome profil klasörünün adı macOS erişim kısıtı nedeniyle doğrulanamadı; buradan cüzdan eklentisinin eksik olduğu sonucu çıkarılmadı.
+- **Somut engel:** Chrome hata 12: “JavaScript'i AppleScript üzerinden çalıştırma seçeneği kapalı.” Bu nedenle gerçek oturumun bağlı wallet/network ve local pending kayıtları henüz okunamadı. Hiçbir kayıt silinmedi, yeni deposit başlatılmadı, signer taklit edilmedi.
+- **Şimdi gereken tek müdahale:** açılan Google Chrome penceresinde **Görünüm → Geliştirici → Apple Events'ten JavaScript'e izin ver** seçeneğini açıp haber ver. Sonrasında gerçek sayfanın Connect wallet akışı incelenecek; cüzdan kilidi ve imza kullanıcıda kalacak. Bu izin kendi başına cüzdan bağlantısı veya imza onayı değildir.
+- **Güncel zincir okuması:** `npm run demo:preflight`, 19 Eylül 21:07 UTC / 20 Eylül 00:07 İstanbul: exit 0, 12 PASS / 1 TTL WARN / 0 FAIL; 1 ve 5 birim için 24/24 quote. Router aktif, Reflector fiyatları 139–140 sn yaşında. TRY bitişi zincirden tekrar **20 Eylül 13:57 İstanbul** olarak doğrulandı. Şu an bakım gerekmiyor; TRY/TTL/top-up yazımı yapılmadı.
+- **Hesaplar:** yapılandırılmış aday sender `GBJT…YXOC` için USDC 3.4755, EURC 9.0359; aday recipient `GB2M…3RC4` için USDC 0.2910, EURC 1.9604. İki hesabın dört asset trustline'ı authorized. Bunlar tarayıcıda bağlı/incelemesi onaylanmış gerçek kullanıcı hesabı olarak henüz teyit edilmedi. Dört LP mevcut; aday sender zaten kayıtlı. Bu gözlem yeni LP browser kaydı veya o LP'nin rotada seçilmesi kanıtı değildir. Ayrı inventory/fee başlangıç görüntüsü kaydedildi; fee değişimi henüz ölçülmedi.
+- **Video:** `outputs/demo-rehearsal-20260920/recording-trial-unsigned.mp4` gerçek, imzasız Send/Fund/Liquidity ekran kaydı; sahte success/hash yok. 96 kare yaklaşık 11.9 sn'de alındı, 12 sn MP4 üretildi; settlement süresi iddiası yok. Kayıt profili geçiciydi, auth kullanılmadı. macOS `CGPreflightScreenCaptureAccess=false`: gerçek Chrome ekran kaydı ayrıca engelli; bu video engeli canlı işlemleri durdurma gerekçesi değil. Başarılı gerçek kabul henüz olmadığı için 60–90 sn final video üretilmedi. Repo ve verilen bağlamda ayrı bir video brief dosyası bulunamadı; kullanıcıdaki Fund → receipt → Send/route → settlement → LP sırası esas alınacak.
+- **Mevcut yayın:** `.openai/hosting.json` ile eşleşen Sites kaydı [Rise FX](https://rise-fx-stellar.cemilroyale10.chatgpt.site), sürüm 1. Salt-okunur erişim HTTP 401; bu adres güncel Veldora sunumu olarak kabul edilmedi. Yerel prova bundan bağımsız. Push/deploy yapılmadı.
+
+Yeni kanıtlar `outputs/demo-rehearsal-20260920/` altında: `preflight.log`, yalnız public alanları içeren `public-baseline.json`, `access-check.json`, `recording-trial.json`, MP4 ve çözülmüş doğrulama kareleri. Üretilmiş dosyalar ignored. **Yeni browser-wallet PASS: yok. Yeni gerçek işlem/hash: yok. Demo hazır sonucu verilmedi.**
