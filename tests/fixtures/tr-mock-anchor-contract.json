@@ -1,0 +1,142 @@
+{
+  "sources": {
+    "info": "https://tr-mock-anchor.fly.dev/sep6/info",
+    "quote_info": "https://tr-mock-anchor.fly.dev/sep38/info",
+    "price": "https://tr-mock-anchor.fly.dev/sep38/price?sell_asset=iso4217:TRY&buy_asset=stellar:USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5&sell_amount=50.00&context=sep6",
+    "sep6": "https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0006.md#deposit-exchange"
+  },
+  "observed_at": "2026-09-10",
+  "sep6_info": {
+    "deposit": {
+      "USDC": {
+        "enabled": true,
+        "authentication_required": true,
+        "min_amount": 0.5,
+        "max_amount": 300,
+        "fee_percent": 0.5,
+        "funding_methods": ["bank_account"],
+        "fields": {
+          "type": {
+            "description": "How the TRY arrives. Only bank_account (bank transfer) is supported.",
+            "choices": ["bank_account"],
+            "optional": false
+          }
+        }
+      }
+    },
+    "deposit-exchange": {
+      "USDC": {
+        "enabled": true,
+        "authentication_required": true,
+        "min_amount": 0.5,
+        "max_amount": 300,
+        "fee_percent": 0.5,
+        "funding_methods": ["bank_account"],
+        "fields": {
+          "type": {
+            "description": "How the TRY arrives. Only bank_account (bank transfer) is supported.",
+            "choices": ["bank_account"],
+            "optional": false
+          }
+        }
+      }
+    },
+    "withdraw": {
+      "USDC": {
+        "enabled": true,
+        "authentication_required": true,
+        "min_amount": 0.5,
+        "max_amount": 300,
+        "fee_percent": 0.5,
+        "funding_methods": ["bank_account"],
+        "types": {
+          "bank_account": {
+            "fields": {}
+          }
+        }
+      }
+    },
+    "withdraw-exchange": {
+      "USDC": {
+        "enabled": true,
+        "authentication_required": true,
+        "min_amount": 0.5,
+        "max_amount": 300,
+        "fee_percent": 0.5,
+        "funding_methods": ["bank_account"],
+        "types": {
+          "bank_account": {
+            "fields": {}
+          }
+        }
+      }
+    },
+    "fee": {
+      "enabled": false,
+      "description": "Fee is a flat spread over the USD/TRY mid rate; see /sep38/price or the fee fields on each transaction."
+    },
+    "transactions": {
+      "enabled": true,
+      "authentication_required": true
+    },
+    "transaction": {
+      "enabled": true,
+      "authentication_required": true
+    },
+    "features": {
+      "account_creation": false,
+      "claimable_balances": true
+    }
+  },
+  "sep38_info": {
+    "assets": [
+      {
+        "asset": "stellar:USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5"
+      },
+      {
+        "asset": "iso4217:TRY",
+        "country_codes": ["TUR"],
+        "sell_delivery_methods": [
+          {
+            "name": "bank_account",
+            "description": "Turkish bank transfer (FAST / EFT / Havale)"
+          }
+        ],
+        "buy_delivery_methods": [
+          {
+            "name": "bank_account",
+            "description": "Turkish bank transfer (FAST / EFT / Havale)"
+          }
+        ]
+      }
+    ]
+  },
+  "price_50_try": {
+    "total_price": "48.7373089",
+    "price": "48.494834",
+    "sell_amount": "50.00",
+    "buy_amount": "1.0259081",
+    "fee": {
+      "total": "0.25",
+      "asset": "iso4217:TRY",
+      "details": [
+        {
+          "name": "spread",
+          "description": "50 bps from the USD/TRY mid rate",
+          "amount": "0.25"
+        }
+      ]
+    }
+  },
+  "user_observed_error": {
+    "status": 400,
+    "error": "unsupported destination_asset 'stellar:USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5'; this anchor ramps USDC"
+  },
+  "exchange_request": {
+    "destination_asset": "USDC",
+    "source_asset": "iso4217:TRY",
+    "funding_method": "bank_account",
+    "type": "bank_account",
+    "claimable_balance_supported": "false"
+  }
+}

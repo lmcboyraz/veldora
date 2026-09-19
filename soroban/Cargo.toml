@@ -1,0 +1,30 @@
+[workspace]
+resolver = "2"
+# `demo-token` is the retired rUSD/rEUR faucet token. It is kept for reference
+# only — the demo now routes Circle's real testnet USDC/EURC SACs — so it is
+# excluded from the workspace instead of being built or deployed.
+members = [
+  "contracts/fx-router",
+  "contracts/demo-oracle",
+]
+exclude = [
+  "contracts/demo-token",
+]
+
+[workspace.dependencies]
+soroban-sdk = "27"
+
+[profile.release]
+opt-level = "z"
+overflow-checks = true
+debug = 0
+strip = "symbols"
+debug-assertions = false
+panic = "abort"
+codegen-units = 1
+lto = true
+
+# For more information about this profile see https://developers.stellar.org/docs/build/smart-contracts/example-contracts/logging#cargotoml-profile
+[profile.release-with-logs]
+inherits = "release"
+debug-assertions = true
