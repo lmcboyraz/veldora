@@ -170,6 +170,10 @@ export async function getQuote(
   }
 }
 
+export async function getProviders(minimumLedger = 0): Promise<string[]> {
+  return simulate(VIEW_ACCOUNT, FX_ROUTER, 'get_providers', [], minimumLedger);
+}
+
 export async function getProviderStats(provider: string, minimumLedger = 0) {
   const entries = await Promise.all((Object.keys(ASSETS) as AssetKey[]).map(async key => {
     const args = [address(provider), address(ASSETS[key].contract)];

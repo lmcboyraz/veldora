@@ -15,6 +15,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: 'Veldora FX — Stellar settlement',
   description: 'Oracle-anchored FX routing and atomic settlement on Stellar.',
+  icons: { icon: '/favicon.svg' },
 };
 
 export default function RootLayout({

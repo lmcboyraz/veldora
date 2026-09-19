@@ -94,12 +94,14 @@ test('LP getter rejects a ledger older than settlement, while unbounded reads ke
 });
 
 test('shared provider getter optionally enforces simulation latestLedger without changing its result shape',async()=>{
- const {getProviderStats}=await import('../lib/stellar.ts');
+ const {getProviderStats,getProviders}=await import('../lib/stellar.ts');
  globalThis.__lpReadLedger=76;
  try {
+  await assert.rejects(getProviders(77),/ledger|catch|current/i);
+  assert.deepEqual(await getProviders(),[VIEW_ACCOUNT]);
   await assert.rejects(getProviderStats(VIEW_ACCOUNT,77),/ledger|catch|current/i);
   assert.deepEqual(await getProviderStats(VIEW_ACCOUNT),Object.fromEntries(Object.keys(ASSETS).map(k=>[k,{balance:500n,fees:500n}])));
-  globalThis.__lpReadLedger=77;assert.equal((await getProviderStats(VIEW_ACCOUNT,77)).EUR.balance,500n);
+  globalThis.__lpReadLedger=77;assert.deepEqual(await getProviders(77),[VIEW_ACCOUNT]);assert.equal((await getProviderStats(VIEW_ACCOUNT,77)).EUR.balance,500n);
  } finally {delete globalThis.__lpReadLedger;delete globalThis.__lpLagMethod;}
 });
 

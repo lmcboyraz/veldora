@@ -136,6 +136,27 @@ test('quote accepts omitted capability limits and still enforces supplied limits
     );
   }
 });
+test('prepare rejects nonnumeric capability limit types instead of stringifying them', async () => {
+  for (const name of ['min_amount', 'max_amount']) {
+    for (const value of [null, true, [], {}]) {
+      const info = structuredClone(cap);
+      info['deposit-exchange'].USDC[name] = value;
+      await withAnchor(
+        (u) => {
+          if (u.pathname === '/sep6/info') return info;
+          if (u.pathname === '/sep12/customer') return { status: 'ACCEPTED' };
+          throw Error('Unexpected endpoint ' + u.pathname);
+        },
+        async () => {
+          await assert.rejects(
+            () => demo(request(), { action: 'prepare', wallet }),
+            /Invalid Anchor amount limit/,
+          );
+        },
+      );
+    }
+  }
+});
 test('SEP-12 sends empty simulated KYC and verifies acceptance', async () => {
   let accepted = false;
   await withAnchor(

@@ -139,7 +139,17 @@ async function capabilities(d: Discovery) {
     )
       throw new AnchorError('The Anchor requires an unsupported deposit field.');
   }
-  return cap;
+  const { min_amount, max_amount } = cap;
+  if (
+    (min_amount !== undefined &&
+      typeof min_amount !== 'string' &&
+      typeof min_amount !== 'number') ||
+    (max_amount !== undefined &&
+      typeof max_amount !== 'string' &&
+      typeof max_amount !== 'number')
+  )
+    throw new AnchorError('Invalid Anchor amount limit.');
+  return { ...cap, min_amount, max_amount };
 }
 async function balance(wallet: string) {
   const data = await json(`${HORIZON_URL}/accounts/${wallet}`);

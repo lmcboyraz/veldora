@@ -60,6 +60,7 @@ rpc.Server.prototype.simulateTransaction=async tx=>{
  }
  if(method==='snapshot'&&snapshot!==undefined)return success(snapshot);
  if(method==='quote_route')return success(route(...args));
+ if(method==='get_providers')return success(config.PROVIDERS.map(p=>p.address));
  if(method==='get_max_price_age')return success(900);
  if(method==='get_asset'){const a=Object.values(config.ASSETS).find(a=>a.contract===args[0]);return success({enabled:true,is_oracle_base:a.currency==='USD',oracle:a.oracle,oracle_base:'USD',token_decimals:7,oracle_asset:['Other',a.oracleSymbol]});}
  if(['balance','get_balance'].includes(method))return success(10000000000n);

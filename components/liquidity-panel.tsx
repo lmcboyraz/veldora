@@ -36,7 +36,7 @@ export function LiquidityPanel({ wallet, connect, visible, onConfirmed }: {
   const minimumLedger = useRef(0);
   const pendingParentLedger = useRef(0);
   const confirmedCallback = useRef(onConfirmed);
-  confirmedCallback.current = onConfirmed;
+  useEffect(() => { confirmedCallback.current = onConfirmed; }, [onConfirmed]);
   const generation = useRef(0);
   const locked = useRef(false);
   const alive = useRef(true);

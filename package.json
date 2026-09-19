@@ -11,7 +11,7 @@
     "start": "wrangler dev --config dist/server/wrangler.json",
     "lint": "oxlint",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/",
+    "test": "node --test tests/*.test.mjs",
     "format": "oxfmt",
     "demo:preflight": "node scripts/demo-preflight.mjs",
     "try:refresh": "node scripts/try-price-keeper.mjs --execute --once"

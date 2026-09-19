@@ -100,7 +100,7 @@ export const ASSETS = {
 
 export type AssetKey = keyof typeof ASSETS;
 
-/** Demo liquidity providers shown in the UI. Their fees are read from the chain per quote. */
+/** Known provider labels; registration, inventory and route fees are read from the chain. */
 export const PROVIDERS = [
   {
     name: 'LP-1',

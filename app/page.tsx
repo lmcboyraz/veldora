@@ -43,6 +43,7 @@ import {
   checkSendTransaction,
   formatAmount,
   getProviderStats,
+  getProviders,
   getQuote,
   getTokenBalance,
   parseAmount,
@@ -106,14 +107,17 @@ export default function Home() {
   const [balances, setBalances] = useState(EMPTY_BALANCES);
   const [staleBalanceWallet, setStaleBalanceWallet] = useState('');
   const currentWallet = useRef(walletAddress);
-  currentWallet.current = walletAddress;
   const balanceRequest = useRef(0);
+  const connectionRequest = useRef(0);
   const providerRequest = useRef(0);
   // Provider floors belong to this page's fixed Testnet/router context, independently per LP.
   const providerLedgers = useRef<Record<string, number>>({});
   const mounted = useRef(true);
-  useEffect(() => { mounted.current = true; return () => { mounted.current = false; ++balanceRequest.current; ++providerRequest.current; }; }, []);
-  const [providerStats, setProviderStats] = useState<Record<string, ProviderStats>>({});
+  const invalidateReads = useCallback(() => { ++balanceRequest.current; ++providerRequest.current; ++connectionRequest.current; }, []);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; invalidateReads(); }; }, [invalidateReads]);
+  const [providers, setProviders] = useState<string[]>([]);
+  const [providerStats, setProviderStats] = useState<Record<string, ProviderStats | null>>({});
+  const [providerError, setProviderError] = useState('');
   const [action, setAction] = useState<'connect' | 'trustline' | 'swap' | null>(null);
   const [recipientTrustline, setRecipientTrustline] = useState<TrustlineStatus | null>(null);
   const [senderTrustline, setSenderTrustline] = useState<TrustlineStatus | null>(null);
@@ -154,22 +158,46 @@ export default function Home() {
   const recipientProblem = recipientError(recipient);
   const amountProblem = amountInputError(amount);
   const walletBalanceUnavailable = !!walletAddress && staleBalanceWallet === walletAddress;
+  const fundedRouteMessage = !anchorPayment || payment ? '' : quoteLoading
+    ? 'USDC received. Checking a route for this amount…'
+    : !quote
+      ? 'No current route for this amount. Your USDC stays in your wallet. The amount has not been reduced; review it and request a new quote.'
+      : walletBalanceUnavailable
+        ? 'USDC received; wallet balance is unavailable. Reconnect to refresh before sending.'
+        : 'Quote available for this amount. Review your balance and recipient before signing.';
 
   const refreshBalances = useCallback(async (account: string) => {
+    if (!mounted.current || currentWallet.current !== account) return;
     const request = ++balanceRequest.current;
-    const next = await getWalletBalances(account);
-    if (!mounted.current || currentWallet.current !== account || request !== balanceRequest.current) return;
-    setBalances(next);
-    setStaleBalanceWallet('');
+    setStaleBalanceWallet(account);
+    try {
+      const next = await getWalletBalances(account);
+      if (!mounted.current || currentWallet.current !== account || request !== balanceRequest.current) return;
+      setBalances(next);
+      setStaleBalanceWallet('');
+      return next;
+    } catch (error) {
+      if (mounted.current && currentWallet.current === account && request === balanceRequest.current) throw error;
+    }
   }, []);
 
   const refreshProviders = useCallback(async () => {
     const request = ++providerRequest.current;
-    const entries = await Promise.all(
-      PROVIDERS.map(async (provider) => [provider.address, await getProviderStats(provider.address, providerLedgers.current[provider.address] ?? 0)] as const),
-    );
+    let addresses: string[];
+    try {
+      addresses = await getProviders(Math.max(0, ...Object.values(providerLedgers.current)));
+    } catch (error) {
+      if (!mounted.current || request !== providerRequest.current) return;
+      setProviderStats({});
+      setProviderError('Provider list unavailable. Refresh to try again.');
+      throw error;
+    }
+    const readings = await Promise.allSettled(addresses.map(address => getProviderStats(address, providerLedgers.current[address] ?? 0)));
     if (!mounted.current || request !== providerRequest.current) return;
-    setProviderStats(Object.fromEntries(entries));
+    setProviders(addresses);
+    setProviderStats(Object.fromEntries(addresses.map((address, i) => [address, readings[i].status === 'fulfilled' ? readings[i].value : null])));
+    setProviderError('');
+    if (readings.some(reading => reading.status === 'rejected')) throw new Error('Some provider inventory is unavailable.');
   }, []);
 
   const refreshAfterLiquidity = useCallback(async (account: string, ledger: number) => {
@@ -308,10 +336,14 @@ export default function Home() {
   }
 
   async function connect() {
+    const request = ++connectionRequest.current;
+    ++balanceRequest.current;
+    setStaleBalanceWallet(walletAddress);
     setAction('connect');
     setNotice(null);
     try {
       const address = await connectWallet();
+      if (!mounted.current || request !== connectionRequest.current) return;
       accountChanged(address);
       if (walletAddress && address !== walletAddress) {
         setAnchorPayment(null);
@@ -323,9 +355,9 @@ export default function Home() {
       setBalances(EMPTY_BALANCES);
       await refreshBalances(address);
     } catch (error) {
-      setNotice({ tone: 'error', text: errorMessage(error) });
+      if (mounted.current && request === connectionRequest.current) setNotice({ tone: 'error', text: errorMessage(error) });
     } finally {
-      setAction(null);
+      if (mounted.current && request === connectionRequest.current) setAction(null);
     }
   }
 
@@ -336,17 +368,18 @@ export default function Home() {
     setNotice(null);
     try {
       await ensureTrustline(walletAddress, assetKey);
-      await Promise.all([
+      const refreshed = await Promise.allSettled([
         refreshBalances(walletAddress),
         refreshSenderTrustline(),
         refreshRecipientTrustline(),
       ]);
+      if (currentWallet.current !== walletAddress) return;
       setNotice({
         tone: 'success',
-        text: `${ASSETS[assetKey].code} trustline added to your wallet.`,
+        text: `${ASSETS[assetKey].code} trustline added to your wallet.${refreshed.some(result => result.status === 'rejected') ? ' Some balances could not refresh; reconnect to refresh before sending.' : ''}`,
       });
     } catch (error) {
-      setNotice({ tone: 'error', text: errorMessage(error) });
+      if (currentWallet.current === walletAddress) setNotice({ tone: 'error', text: errorMessage(error) });
     } finally {
       setAction(null);
     }
@@ -391,7 +424,8 @@ export default function Home() {
         getTokenBalance(ASSETS[source].contract, walletAddress),
         getTokenBalance(ASSETS[target].contract, recipient),
       ]);
-      const available = await getWalletBalances(walletAddress);
+      const available = await refreshBalances(walletAddress);
+      if (!available) return;
       if (available[source] < amountIn) throw new Error('Insufficient available source balance.');
       if (!isCurrentQuote(quote, requestKey, Math.floor(Date.now()/1000))) throw new Error('The quote expired. Refresh and try again.');
       const minAmountOut = (quote.amountOut * 9_950n) / 10_000n;
@@ -455,6 +489,13 @@ export default function Home() {
       setNotice({tone:settled==='success'?'success':settled==='failed'||settled==='expired'?'error':'pending',
       text:paymentRef.current?.status==='success'?'Payment confirmed. See the transaction hash for receipt details.':errorMessage(error)});}
     finally {sendLock.current=false;setAction(null);}
+  }
+  async function continueFromFund() {
+    if (!walletAddress || currentWallet.current !== walletAddress) return;
+    setTab('send');
+    if (paymentRef.current) return;
+    setQuote(null);
+    await Promise.allSettled([refreshBalances(walletAddress), refreshQuote()]);
   }
   function newPayment() {
     try {clearPayment();paymentRef.current=null;setPayment(null);setReceipt(null);setNotice(null);setAnchorPayment(null);void refreshQuote();}
@@ -585,6 +626,7 @@ export default function Home() {
                 </div>
               )}
 
+              {fundedRouteMessage && <output className="mt-3 block text-sm">{fundedRouteMessage}</output>}
               {quoteError && amountIn > 0n && source !== target && !payment && <p role="alert" className="mt-3 text-sm">{quoteError}</p>}
               {recoveryError && <p role="alert">{recoveryError}</p>}
               {notice && (
@@ -688,20 +730,23 @@ export default function Home() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>Your liquidity network</CardTitle>
-                <button aria-label="Refresh liquidity" onClick={() => refreshProviders()} className="text-[#64786e] transition hover:rotate-90 hover:text-[#185b48]"><RefreshCw className="size-4" /></button>
+                <button aria-label="Refresh liquidity" onClick={() => refreshProviders().catch(() => undefined)} className="text-[#64786e] transition hover:rotate-90 hover:text-[#185b48]"><RefreshCw className="size-4" /></button>
               </div>
               <CardDescription className="text-[#64786e]">A better route, selected for you.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {PROVIDERS.map((provider) => {
+              {providerError && <p role="alert">{providerError}</p>}
+              {providers.map((address) => {
+                const provider = PROVIDERS.find(provider => provider.address === address) ?? { address, name: 'Liquidity provider' };
                 const stats = providerStats[provider.address];
-                const isSelected = quote?.hops.some(h => h.provider === provider.address);
+                const isSelected = !!stats && quote?.hops.some(h => h.provider === provider.address);
                 return (
                   <div key={provider.address} className={`rounded-2xl p-4 ring-1 ${isSelected ? 'bg-[#e8efde] ring-[#cbd9b7]' : 'bg-white/60 ring-[#e0e6de]'}`}>
                     <div className="flex items-center justify-between gap-3">
                       <div><span className="font-medium">{provider.name}</span><p className="mt-1 font-mono text-[10px] text-[#64786e]">{shorten(provider.address, 6)}</p></div>
                       {isSelected && <Badge className="bg-[#123d35] text-white">Best route</Badge>}
                     </div>
+                    {!stats && <output className="mt-2 block text-xs text-[#64786e]">Inventory unavailable. Refresh to try again.</output>}
                     <div className="mt-4 grid grid-cols-3 gap-3 text-xs text-[#64786e]">
                       <span>Fee<strong className="mt-1 block text-sm text-[#152b29]">{quote?.hops.filter(h=>h.provider===provider.address).map(h=>`${h.feeBps} bps`).join(' / ') || '—'}</strong></span>
                       {(Object.keys(ASSETS) as AssetKey[]).map(key=><span key={key}>{ASSETS[key].code}<strong className="mt-1 block text-sm text-[#152b29]">{stats ? formatAmount(stats[key].balance,2) : '—'}</strong></span>)}
@@ -753,8 +798,8 @@ export default function Home() {
         <section id="panel-fund" aria-labelledby="nav-fund" hidden={tab !== 'fund'} className="tab-panel fund-panel">
           <div className="panel-heading"><div><p className="eyebrow">ADD FUNDS</p><h1>From lira to your wallet.</h1><p>TRY → USDC with Mock Anchor. Then send with Veldora.</p></div><span className="journey-caption">TRY <span>→</span> USDC</span></div>
           <div className="fund-card">
-          <AnchorOnrampCard key={walletAddress} wallet={walletAddress} onContinue={() => setTab('send')} onVerified={(payment) => {
-            if (payment.destination_address !== walletAddress || paymentRef.current || anchorPayment?.id === payment.id) return;
+          <AnchorOnrampCard key={walletAddress} wallet={walletAddress} onContinue={continueFromFund} onVerified={(payment) => {
+            if (payment.destination_address !== walletAddress || currentWallet.current !== walletAddress || paymentRef.current || anchorPayment?.id === payment.id) return;
             ++quoteRequest.current;
             setQuote(null);
             setQuoteLoading(true);
@@ -763,8 +808,9 @@ export default function Home() {
             setTarget('EUR');
             setAmount(payment.amount_usdc);
             setReceipt(null);
-            void refreshBalances(walletAddress).catch(() => setNotice({ tone: 'error', text: 'USDC received; wallet balance refresh failed. Reconnect to refresh before swapping.' }));
+            void refreshBalances(walletAddress).catch(() => { if (currentWallet.current === walletAddress) setNotice({ tone: 'error', text: 'USDC received; wallet balance refresh failed. Reconnect to refresh before swapping.' }); });
           }} />
+          {fundedRouteMessage && <output className="block p-5 text-sm">{fundedRouteMessage}{quoteError ? ` ${quoteError}` : ''}</output>}
           </div>
         </section>
         <section id="panel-liquidity" aria-labelledby="nav-liquidity" hidden={tab !== 'liquidity'} className="tab-panel">
