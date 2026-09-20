@@ -1,4 +1,3 @@
-import { sites } from '@openai/sites-vite-plugin';
 import tailwindcss from '@tailwindcss/postcss';
 import vinext from 'vinext';
 import { defineConfig } from 'vite';
@@ -34,7 +33,36 @@ const localBindingConfig = {
     : [],
 };
 
-export default defineConfig(async () => {
+export default defineConfig(async ({ mode }) => {
+  const shared = {
+    css: { postcss: { plugins: [tailwindcss()] } },
+    server: isCodexSeatbeltSandbox
+      ? { watch: { useFsEvents: false, usePolling: true } }
+      : undefined,
+  };
+
+  // Vercel needs a Node function for SSR and the anchor API, not a static SPA.
+  if (mode === 'vercel' || process.env.VERCEL === '1') {
+    const { nitro } = await import('nitro/vite');
+    return {
+      ...shared,
+      // Keep CSS package imports resolvable during the Node/RSC build.
+      ssr: { noExternal: ['tailwindcss', 'tw-animate-css', 'shadcn'] },
+      environments: {
+        rsc: {
+          resolve: { noExternal: ['tailwindcss', 'tw-animate-css', 'shadcn'] },
+        },
+      },
+      plugins: [
+        vinext(),
+        nitro({
+          preset: 'vercel',
+          vercel: { functions: { runtime: 'nodejs22.x', maxDuration: 300 } },
+        }),
+      ],
+    };
+  }
+
   // Keep Wrangler and Miniflare state project-local. These are non-secret tool
   // settings; application environment belongs in ignored `.env*` files.
   process.env.WRANGLER_WRITE_LOGS ??= 'false';
@@ -43,12 +71,10 @@ export default defineConfig(async () => {
 
   // Wrangler snapshots its log path while the Cloudflare plugin is imported.
   const { cloudflare } = await import('@cloudflare/vite-plugin');
+  const { sites } = await import('@openai/sites-vite-plugin');
 
   return {
-    css: { postcss: { plugins: [tailwindcss()] } },
-    server: isCodexSeatbeltSandbox
-      ? { watch: { useFsEvents: false, usePolling: true } }
-      : undefined,
+    ...shared,
     plugins: [
       vinext(),
       sites(),

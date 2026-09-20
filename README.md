@@ -76,7 +76,8 @@ Contract sources: `soroban/contracts/fx-router` and `soroban/contracts/demo-orac
 
 ## Run locally
 
-Requires Node 22.13+ (and Rust with the `wasm32v1-none` target for the contracts).
+Requires Node 22.15+ within the Node 22 release line (and Rust with the
+`wasm32v1-none` target for the contracts). Tests use Node's `registerHooks` API.
 
 ```bash
 npm install
@@ -87,6 +88,39 @@ Open http://localhost:3000 and connect a Stellar Testnet wallet (Freighter, xBul
 Rabet, LOBSTR or Hana via Stellar Wallets Kit). No environment variables are needed. A
 recipient must hold a trustline for the asset it receives; the app offers to add the
 connected wallet's own trustlines.
+
+## Deploy to Vercel
+
+Import `lmcboyraz/veldora`, branch `main`, with root directory `./`. Choose the
+**Other** application preset. The committed `vercel.json` sets install to `npm ci`,
+build to `npm run build:vercel`, and output to `.vercel/output`. Node 22 is selected
+by `package.json`. Leave Environment Variables empty and click **Deploy**.
+
+The Vercel build uses Vinext with [Nitro's Vercel preset](https://nitro.build/deploy/providers/vercel).
+It produces Build Output API v3 static assets plus a Node 22 server function for
+SSR, `/api/anchor/demo`, and `/api/anchor/onramp`; it is not a static-only export.
+The function has a 300-second limit for multi-request anchor flows. Requests may
+still time out: preserve the existing recovery flow and check a deposit's status
+before creating another one. No session or secret is stored in the function.
+
+```bash
+npm run build:vercel
+npm run verify:vercel
+# After deployment, repeat the unsigned HTTP checks against the real URL:
+npm run verify:vercel -- https://YOUR-PROJECT.vercel.app
+```
+
+Verification checks SSR, referenced JS/CSS, both API routes, HTTPS same-origin
+requests, cross-origin rejection, and request validation. It does not sign or
+submit blockchain transactions. Open the deployed HTTPS origin, select Stellar
+Testnet in your wallet, and authorize that new site origin. Fund authentication
+and any subsequent trustline, payment or liquidity signature must be approved in
+the wallet by its owner. TRY snapshot expiry is independent of hosting.
+
+`npm run dev`, `npm run build`, and `npm start` retain the existing local
+Cloudflare development/build/preview flow. Vercel selects Nitro through
+`build:vercel` (or its `VERCEL=1` build environment). No contract redeployment,
+Cloudflare publication, API key, seed, or private key is needed.
 
 ## Tests
 
