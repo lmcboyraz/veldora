@@ -161,42 +161,26 @@ Token inventory is deposited into the router and accounted for per provider.
 
 ## Fund: from simulated TRY to USDC
 
-The [TR Mock Anchor](https://tr-mock-anchor.fly.dev/sep) exposes endpoints discovered
-through `stellar.toml`. The flow is:
+Fund demonstrates how a bank deposit could become spendable tokens. The
+[TR Mock Anchor](https://tr-mock-anchor.fly.dev/sep) simulates the bank and identity
+checks; no real money or personal documents are needed.
 
-```mermaid
-sequenceDiagram
-    actor User
-    participant App as Veldora + wallet
-    participant API as Vercel anchor API
-    participant Anchor as TR Mock Anchor
-    participant Stellar as Stellar Testnet
-    User->>App: Choose TRY amount
-    App->>API: Request SEP-10 challenge
-    API->>Anchor: Discover endpoints and fetch challenge
-    Anchor-->>App: Challenge via API
-    User->>App: Approve wallet signature
-    App->>API: Signed challenge
-    API->>Anchor: Authenticate and run mock SEP-12 KYC
-    App->>API: Request firm SEP-38 quote
-    API->>Anchor: Lock TRY / USDC quote
-    User->>App: Confirm deposit
-    App->>API: Create SEP-6 deposit
-    API->>Anchor: Request bank instructions
-    User->>App: Trigger simulated bank transfer
-    App->>API: Simulate bank payment
-    API->>Anchor: Submit mock bank event
-    Anchor->>Stellar: Pay USDC when deposit is processed
-    App->>API: Poll existing deposit status
-    API->>Anchor: Read deposit status
-    API->>Stellar: Verify reported payout on-chain
-    API-->>App: Verified spendable USDC delivery
-    Note over App,Stellar: Send becomes a separate wallet-authorized payment
-```
+1. **Connect and authorize.** Sign a wallet challenge and complete the simulated
+   identity check.
+2. **Review the conversion.** Enter a TRY amount and review the locked TRY → USDC
+   quote, including the anchor fee.
+3. **Simulate the deposit.** Confirm the deposit and trigger the mock bank transfer.
+   The anchor then processes the USDC payout to your wallet.
+4. **Continue to Send.** Veldora verifies the payout on Stellar before offering Send.
+   Converting that USDC into the recipient's currency is a separate transaction
+   that you approve in your wallet.
 
-The sequence describes the intended completion path; external anchor payouts can stall.
-The app preserves deposit recovery information and verifies the reported USDC payout
-on-chain before offering the transition to Send. Never send real fiat to this sandbox.
+Under the hood, this uses Stellar's SEP-10 authentication, SEP-12 KYC, SEP-38 quotes
+and SEP-6 deposits through Veldora's anchor API.
+
+**Current demo limitation:** the external anchor payout can remain pending. Veldora
+preserves the deposit for status checks and recovery; a pending deposit does not mean
+USDC has arrived. You can test Send independently with an already funded testnet wallet.
 
 ## Code map
 
